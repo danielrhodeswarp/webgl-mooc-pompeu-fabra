@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="js/three.min.js"></script>
+    <script src="js/OrbitControls.js"></script>
+    <script src="js/FirstPersonControls.js"></script>
+    <script src="js/FlyControls.js"></script>
+</head>
+<body>
+<link rel="stylesheet" href="css/noidea.css" type="text/css">
+<script>
+
+//global variables
+var renderer;
+var scene;
+var camera;
+//var spotLight;
+var cameraControl;
+
+//some controls
+var showOrbitLines = true;
+
+//here comes the science
+
+var auShrinker = 600;  //tone down AUs to fit everything in a reasonably sized scene / camera
+var globalShrinker = 1000;  //tone down ERs and AUs
+var sunErShrinker = 20; //the sun, modelled accurately, can be just too darn big
+var angleShrinker = 4;  //slow down our revolutions (about sun)
+var rotationShrinker = 100;  //slow down our rotations (self axis)
+
+//Astronomic Unit constant
+//how many Three.js units for an Astronomical Unit?
+//(now defined as exactly 149597870700 metres (about 150 million kilometres, or 93 million miles))
+//var AU = 150000000;
+var AU = (150000000 / globalShrinker) / auShrinker;
+
+//Earth Radius constant
+//how many Three.js units for Earth's radius?
+//(about 6,371 kilometers (3,959 mi))
+//var ER = 6371;
+var ER = (6371 / globalShrinker);
+
+//Earth Year constant
+//var EY = 365.25;  //too slow with this value!
+var EY = 1;
+
+//Earth Day constant
+var ED = 1;
+
+var planets = [
+        {name:"sun", ed:0, ey:0, au:0, er:(109 * ER) / sunErShrinker, colour:0xff8c00, texture:'assets/solar/sunmap.jpg', extra:{}}, //ok, so not *really* a planet...
+        {name:"mecury", ed:58.646 * ED, ey:0.240846 * EY, au:0.4 * AU, er:0.3829 * ER, colour:0xeee5ee, texture:'assets/solar/mercurymap.jpg', extra:{bumpmap:'assets/solar/mercurybump.jpg'}},
+        {name:"venus", ed:-243.025 * ED, ey:0.615198 * EY, au:0.7 * AU, er:0.9499 * ER, colour:0xeeeee5, texture:'assets/solar/venusmap.jpg', extra:{}},
+        {name:"earth", ed:1 * ED, ey:1 * EY, au:1 * AU, er:1 * ER, colour:0x388c00, texture:'assets/solar/earthmap2k.jpg', extra:{normalmap:'assets/solar/earth_normalmap_flat2k.jpg'}},
+        {name:"mars", ed:1.025957 * ED, ey:1.8808 * EY, au:1.5 * AU, er:0.533 * ER, colour:0xff9966, texture:'assets/solar/mars_1k_color.jpg', extra:{normalmap:'assets/solar/mars_1k_normal.jpg'}},
+        {name:"jupiter", ed:0.4135 * ED, ey:11.8618 * EY,au:5.2 * AU, er:11.209 * ER, colour:0xcd853f, texture:'assets/solar/jupitermap.jpg', extra:{}},
+        {name:"saturn", ed:0.4395 * ED, ey:29.4571 * EY, au:9.5 * AU, er:9.4492 * ER, colour:0xceb370, texture:'assets/solar/saturnmap.jpg', extra:{}},
+        {name:"uranus", ed:0.71833 * ED, ey:84.0205 * EY, au:19.2 * AU, er:4.007 * ER, colour:0xc7edf0, texture:'assets/solar/uranusmap.jpg', extra:{}},
+        {name:"neptune", ed:0.6713 * ED, ey:164.8 * EY, au:30.1 * AU, er:3.883 * ER, colour:0x4674fd, texture:'assets/solar/neptunemap.jpg', extra:{}},
+        
+        //LOL no Pluto!
+    ];
+
+function createRenderer() {
+    renderer = new THREE.WebGLRenderer();
+    renderer.setClearColor(0x000000, 1.0);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    //renderer.shadowMap.enabled = true;
+}
+
+function createCamera() {
+    camera = new THREE.PerspectiveCamera(
+            45,
+            window.innerWidth / window.innerHeight,
+            //0.1, 1000);
+            1, 3000);
+    
+    camera.position.x = 50;
+    camera.position.y = 100;
+    camera.position.z = 250;
+
+    //camera.position.x = 90;
+    //camera.position.y = 0;
+    //camera.position.z = 0;
+    
+    //camera.position.x = 0;
+    //camera.position.y = 0;
+    //camera.position.z = 0;
+    
+    camera.lookAt(/*scene.position*/ new THREE.Vector3(180, 0, 0));
+
+    //init the control
+    //cameraControl = new THREE.OrbitControls(camera);
+    
+    /*
+    //cameraControl = new THREE.FirstPersonControls(camera);
+    cameraControl.movementSpeed = 70;
+    cameraControl.lookSpeed = 0.05;
+    cameraControl.noFly = true;
+    cameraControl.lookVertical = false;
+    cameraControl.activeLook = false;
+    */
+
+    cameraControl = new THREE.FlyControls(camera);
+    cameraControl.movementSpeed = 50;
+    //controls.domElement = container;
+    cameraControl.rollSpeed = Math.PI / 24;
+    cameraControl.autoForward = false;
+    cameraControl.dragToLook = false;
+}
+
+function createSolarSystem() {
+
+    
+
+    
+
+    for(var loop = 0; loop < planets.length; loop++)
+    {
+        createPlanet(planets[loop]);
+    }
+}
+
+function createPlanet(planet) {
+    
+    console.log(planet.au);
+    
+    var planetGeometry = new THREE.SphereGeometry(planet.er, 30, 30);
+    //var sphereMaterial = createEarthMaterial();
+    
+    //var planetMaterial = new THREE.MeshLambertMaterial({color:planet.colour});
+    //add textures
+    //if(planet.name == 'earth')
+    //{
+        planetMaterial = createPlanetMaterial(planet);
+        //alert(planetMaterial);
+    //}
+
+
+    var planetMesh = new THREE.Mesh(planetGeometry, planetMaterial);
+    planetMesh.name = planet.name;
+
+    planetMesh.position.x = planet.au;
+    planetMesh.position.y = 0;
+    planetMesh.position.z = 0;
+
+    scene.add(planetMesh);
+
+    
+
+    //add orbit line if configured
+    if(showOrbitLines && planet.name != 'sun')
+    {
+        var geometry = new THREE.RingGeometry(planet.au - 1, planet.au, 64);
+        var material = new THREE.MeshBasicMaterial({color:0xff7700, side:THREE.DoubleSide});
+        var mesh = new THREE.Mesh(geometry, material);
+        //mesh.position.x = 0;
+        //mesh.position.x = 0;
+        //mesh.position.x = 0;
+        mesh.name = 'orbit_for_' + planet.name;
+        scene.add(mesh);
+    }
+}
+
+//returns false if image not found or what-have-you (actually, no, it doesn't)
+function createPlanetMaterial_ADVANCED(planet) {
+alert(planet.texture);
+    var IMAGE_LOADED = false;
+
+    var planetTexture = new THREE.Texture();
+    var loader = new THREE.ImageLoader();
+    //this uses a callback as loading an asset is asynchronous
+    loader.load(planet.texture, function(image) {
+        planetTexture.image = image; //assign
+        planetTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+        IMAGE_LOADED = true;
+    },
+    null,
+    function(xhr){
+        console.log('Could not load image ' + planet.texture);
+        //return false;
+    });
+alert(IMAGE_LOADED);
+    
+    if(IMAGE_LOADED)
+    {
+        var planetMaterial = new THREE.MeshPhongMaterial();
+        planetMaterial.map = planetTexture;
+        
+        return planetMaterial;
+    }
+
+    else
+    {
+        return new THREE.MeshLambertMaterial({color:planet.colour});
+    }
+}
+
+function createPlanetMaterial(planet) {
+
+    var parms = {};
+
+    //the sun must glow (use planet.colour)
+    if(planet.name == 'sun')
+    {
+        parms.emissive = planet.colour;
+        parms.emissiveIntensity = 0.9;
+        //parms.emissiveMap = ;
+    }
+
+    var planetMaterial = new THREE.MeshPhongMaterial(parms);
+    
+    //mandatory diffuse texture-----------------------------------------
+    var planetTexture = new THREE.Texture();
+    var loader = new THREE.ImageLoader();
+    //this uses a callback as loading an asset is asynchronous
+    loader.load(planet.texture, function(image) {
+        planetTexture.image = image; //assign
+        planetTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+        
+    },
+    null,
+    null);
+
+    planetMaterial.map = planetTexture;
+
+    if(planet.name == 'sun')
+    {
+        planetMaterial.emissiveMap = planetTexture;
+    }
+
+    //optional bumpmap--------------------------------------------------
+    //if(planet.extra.bumpmap)    //bumpmaps making planets very very dark for some reason...
+    if(false)
+    {
+        var bumpTexture = new THREE.Texture();
+        var loader = new THREE.ImageLoader();
+        //this uses a callback as loading an asset is asynchronous
+        loader.load(planet.extra.bumpmap, function(image) {
+            bumpTexture.image = image; //assign
+            bumpTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+            
+        },
+        null,
+        function(){console.log('Could not load bump image ' + planet.extra.bumpmap);});
+
+        planetMaterial.bumpMap = bumpTexture;
+        planetMaterial.bumpScale = new THREE.Vector2(0.7, 0.7);
+    }
+
+
+    //optional normalmap-----------------------------------------------
+    //if(planet.extra.normalmap)  //normalmaps making planets very very dark for some reason...
+    if(false)
+    {
+        var normalTexture = new THREE.Texture();
+        var loader = new THREE.ImageLoader();
+        //this uses a callback as loading an asset is asynchronous
+        loader.load(planet.extra.normalmap, function(image) {
+            normalTexture.image = image; //assign
+            normalTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+            
+        },
+        null,
+        function(){console.log('Could not load normal image ' + planet.extra.normalmap);});
+
+        planetMaterial.normalMap = normalTexture;
+        planetMaterial.normalScale = new THREE.Vector2(0.7, 0.7);
+    }
+
+
+
+
+    //optional specularmap--------------------------------------------
+    
+        
+        
+        
+        return planetMaterial;
+    
+}
+
+function createClouds() {
+    var sphereGeometry = new THREE.SphereGeometry(15.1, 30, 30);
+    
+    var cloudsTexture = new THREE.Texture();
+    var loader = new THREE.ImageLoader();
+    loader.load('assets/fair_clouds_1k.png', function(image){
+        cloudsTexture.image = image;
+        cloudsTexture.needsUpdate = true;
+
+    });
+
+    var cloudsMaterial = new THREE.MeshPhongMaterial();
+    cloudsMaterial.map = cloudsTexture;
+    cloudsMaterial.transparent = true;
+
+    var cloudsMesh = new THREE.Mesh(sphereGeometry, cloudsMaterial);
+    cloudsMesh.name = 'clouds';
+
+    scene.add(cloudsMesh);
+}
+
+function createEarth() {
+    var sphereGeometry = new THREE.SphereGeometry(15, 30, 30);
+    var sphereMaterial = createEarthMaterial();
+    var earthMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    earthMesh.name = 'earth';
+    scene.add(earthMesh);
+}
+
+//load in a texture
+function createEarthMaterial() {
+    var earthTexture = new THREE.Texture();
+    var loader = new THREE.ImageLoader();
+    //this uses a callback as loading an asset is asynchronous
+    loader.load('assets/earthmap2k.jpg', function(image) {
+        earthTexture.image = image; //assign
+        earthTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+    });
+
+    var normalTexture = new THREE.Texture();
+    var loader = new THREE.ImageLoader();
+    //this uses a callback as loading an asset is asynchronous
+    loader.load('assets/atlantis_normalmap_flat2k.jpg', function(image) {
+        normalTexture.image = image; //assign
+        normalTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+    });
+
+    //specular is binary image to enable/disable specular component of certain parts of mesh
+    var specularTexture = new THREE.Texture();
+    var loader = new THREE.ImageLoader();
+    //this uses a callback as loading an asset is asynchronous
+    loader.load('assets/earthspec2k.jpg', function(image) {
+        specularTexture.image = image; //assign
+        specularTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+    });
+
+    var earthMaterial = new THREE.MeshPhongMaterial();
+    earthMaterial.map = earthTexture;
+    
+    earthMaterial.normalMap = normalTexture;
+    earthMaterial.normalScale = new THREE.Vector2(0.7, 0.7); //"turn down the normal map a bit so we don't get TOO MUCH relief in the world"
+
+    earthMaterial.specularMap = specularTexture;
+    earthMaterial.specular = new THREE.Color(0x262626);
+
+    return earthMaterial;
+}
+
+/*
+function createSphere() {
+    //let's create material and geometry
+    var sphereGeometry = new THREE.SphereGeometry(6, 30, 30);
+    var sphereMaterial = new THREE.MeshPhongMaterial({color: "red"});
+
+    //mix the geometry and the material to actually create the sphere
+    var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphere.castShadow = true;
+    scene.add(sphere);
+}
+
+function createPlane() {
+    var planeGeometry = new THREE.PlaneGeometry(40, 40);
+    var planeMaterial = new THREE.MeshLambertMaterial({color: 0x00ff00});
+
+    var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+
+    //do some stuff before we add plane to scene
+    console.log(plane.receiveShadow);
+    plane.receiveShadow = true;
+    console.log(plane.receiveShadow);
+    plane.rotation.x = -0.5 * Math.PI;
+    plane.position.y = -5;
+    scene.add(plane);
+}
+*/
+
+/*
+//spotlight
+function createLight() {
+    var spotLight = new THREE.SpotLight(0xffffff);
+    spotLight.position.set(10, 20, 20);
+    spotLight.shadowCameraNear = 20;    //tell the light how to cast shadows
+    spotLight.shadowCameraFar = 50; //important that shadowCamera range is not too small or bog
+    spotLight.castShadow = true;
+
+    scene.add(spotLight);
+
+}
+*/
+
+function createLight() {
+    
+    /*
+    var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(100, 10, -50);
+    //directionalLight.position.set(0, 0, 0);
+    directionalLight.name = 'directional';
+    scene.add(directionalLight);
+    */
+
+    var omniLight = new THREE.PointLight(0xffffff, 1);
+    omniLight.position.set(0, 0, 0);
+    //directionalLight.position.set(0, 0, 0);
+    omniLight.name = 'omni';
+    scene.add(omniLight);
+
+    //no global illumination on a phong material so...
+    //var ambientLight = new THREE.AmbientLight(0x111111);
+    var ambientLight = new THREE.AmbientLight(0x222222);
+    scene.add(ambientLight);
+}
+
+//encircle our scene with a massive sphere, put a texture on the
+//*inside* of that sphere
+function createStarfield() {
+    var sphereGeometry = new THREE.SphereGeometry(10000, 32, 32);
+
+    var envTexture = new THREE.Texture();
+    var loader = new THREE.ImageLoader();
+    //this uses a callback as loading an asset is asynchronous
+    loader.load('assets/galaxy_starfield.png', function(image) {
+        envTexture.image = image; //assign
+        envTexture.needsUpdate = true;    //tell WebGL (in render loop) that summat has changed in scene graph
+    });
+
+    //we *don't* want this texture to react to the light!
+    var envMaterial = new THREE.MeshBasicMaterial();
+    envMaterial.map = envTexture;
+    envMaterial.side = THREE.BackSide;
+
+    var mesh = new THREE.Mesh(sphereGeometry, envMaterial);
+
+
+    scene.add(mesh);
+}
+
+function initRandomPlanetOrbitStarts() {
+
+    for(var loop = 0; loop < planets.length; loop++)
+    {
+        var planetDef = planets[loop];
+
+        var planetMesh = scene.getObjectByName(planetDef.name);
+
+        //planetMesh.angle = 0;
+        planetMesh.angle = Math.random() * (Math.PI * 2);
+        //console.log(planetMesh.angle);
+    }
+}
+
+//init() gets executed once
+function init() {
+
+    scene = new THREE.Scene();
+    
+    createRenderer();
+    
+    createLight();
+
+    createSolarSystem();
+    //createStarfield();
+
+    initRandomPlanetOrbitStarts();
+
+    createCamera();
+
+    document.body.appendChild(renderer.domElement);
+
+    //render() gets called at end of init
+    //as it looped forever
+    render();
+}
+
+function movePlanets() {
+    for(var loop = 0; loop < planets.length; loop++)
+    {
+
+
+        var planetDef = planets[loop];
+
+        //no need to move the old suneroonie
+        if(planetDef.name == 'sun')
+        {
+            continue;   //skip
+        }
+
+        var planetMesh = scene.getObjectByName(planetDef.name);
+
+//console.log(planetDef.ey);
+
+        var x = planetDef.au * Math.sin(planetMesh.angle / (planetDef.ey * angleShrinker));
+        var y = planetDef.au * Math.cos((planetMesh.angle -= oneDegree) / (planetDef.ey * angleShrinker));
+
+        //over/under flowing is not an issue?
+        //if(planetMesh.angle < GreatestNegativeValueAllowedEtc){console.log('arse');}
+
+        planetMesh.position.x = x;
+        planetMesh.position.y = y;
+
+        //NOTE if planetDef.ed is bigger, then rotate slower
+        //planetMesh.rotation.x += x;
+        planetMesh.rotation.z += (1 / planetDef.ed) / rotationShrinker;
+
+    }
+}
+
+var theAngle = Math.PI * 2;
+var oneDegree = (Math.PI * 2) / 360;
+
+
+//infinite loop
+function render() {
+
+//we now have a camera control and so need to update the camera
+    cameraControl.update(0.05);    //seemingly need to pass a delta for FirstPersonControls and FlyControls
+
+//move the planets
+movePlanets();
+
+
+    //scene.getObjectByName('earth').rotation.y += 0.0005;
+    //scene.getObjectByName('clouds').rotation.y += 0.0006;
+
+//spotLight.position.set(Math.floor(Math.random() * 5) + 10, 20, 20);
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
+
+    
+}
+
+init();
+</script>
+</body>
+</html>
