@@ -27,8 +27,10 @@ var rotatePlanets = true;
 var auShrinker = 600;  //tone down AUs to fit everything in a reasonably sized scene / camera
 var globalShrinker = 1000;  //tone down ERs and AUs
 var sunErShrinker = 20; //the sun, modelled accurately, can be just too darn big
-var angleShrinker = 4;  //slow down our revolutions (about sun)
+var revolutionShrinker = 4;  //slow down our revolutions (about sun)
 var rotationShrinker = 100;  //slow down our rotations (self axis)
+
+var oneDegree = (Math.PI * 2) / 360;
 
 //Astronomic Unit constant
 //how many Three.js units for an Astronomical Unit?
@@ -153,16 +155,56 @@ function createPlanet(planet) {
     //add orbit line if configured
     if(showOrbitLines && planet.name != 'sun')
     {
-        var geometry = new THREE.RingGeometry(planet.au - 1, planet.au, 64);
-        var material = new THREE.MeshBasicMaterial({color:0xff7700, side:THREE.DoubleSide});
-        var mesh = new THREE.Mesh(geometry, material);
-        //mesh.position.x = 0;
-        //mesh.position.x = 0;
-        //mesh.position.x = 0;
-        mesh.rotation.x = Math.PI / 2;
-        mesh.name = 'orbit_for_' + planet.name;
-        scene.add(mesh);
+        createPlanetOrbit(planet);
     }
+}
+
+function createPlanetOrbit(planet) {
+    
+    /*
+    //RingGeometry
+    var geometry = new THREE.RingGeometry(planet.au - 1, planet.au, 64);
+    var material = new THREE.MeshBasicMaterial({color:0xff7700, side:THREE.DoubleSide});
+    var mesh = new THREE.Mesh(geometry, material);
+    //mesh.position.x = 0;
+    //mesh.position.x = 0;
+    //mesh.position.x = 0;
+    mesh.rotation.x = Math.PI / 2;
+    mesh.name = 'orbit_for_' + planet.name;
+    scene.add(mesh);
+    */
+
+    
+    //SplineCurve
+
+    var angle = Math.PI * 2;
+
+    var twoDPoints = [];
+
+    for(var loop = 0; loop <= 360; loop++)
+    {
+
+        var revolvedPoint = revolve2DRadiusAroundYAxis(planet.au, angle, 1);
+        twoDPoints.push(new THREE.Vector3(revolvedPoint.x, 0, revolvedPoint.z));
+
+        angle -= oneDegree;
+    }
+
+    //console.log(twoDPoints);
+
+    var curve = new THREE.CatmullRomCurve3(twoDPoints);
+
+    var geometry = new THREE.Geometry();
+    geometry.vertices = curve.getPoints(3060);
+
+    
+    var material = new THREE.LineBasicMaterial({color:0xff7700});
+
+    // Create the final Object3d to add to the scene
+    var splineObject = new THREE.Line(geometry, material);
+
+    scene.add(splineObject);
+    
 }
 
 //returns false if image not found or what-have-you (actually, no, it doesn't)
@@ -495,14 +537,20 @@ function movePlanets() {
 
         if(revolvePlanets)
         {
-            var x = planetDef.au * Math.sin(planetMesh.angle / (planetDef.ey * angleShrinker));
-            var z = planetDef.au * Math.cos((planetMesh.angle -= oneDegree) / (planetDef.ey * angleShrinker));
+            /*
+            var x = planetDef.au * Math.sin(planetMesh.angle / (planetDef.ey * revolutionShrinker));
+            var z = planetDef.au * Math.cos((planetMesh.angle -= oneDegree) / (planetDef.ey * revolutionShrinker));
+            */
+
+            var revolvedPoint = revolve2DRadiusAroundYAxis(planetDef.au, planetMesh.angle, planetDef.ey * revolutionShrinker);
 
             //over/under flowing is not an issue?
             //if(planetMesh.angle < GreatestNegativeValueAllowedEtc){console.log('arse');}
 
-            planetMesh.position.x = x;
-            planetMesh.position.z = z;
+            planetMesh.position.x = revolvedPoint.x;
+            planetMesh.position.z = revolvedPoint.z;
+
+            planetMesh.angle -= oneDegree
         }
 
         if(rotatePlanets)
@@ -515,8 +563,15 @@ function movePlanets() {
     }
 }
 
-var theAngle = Math.PI * 2;
-var oneDegree = (Math.PI * 2) / 360;
+
+function revolve2DRadiusAroundYAxis(radius, angle, yearSpeed)
+{
+    var x = radius * Math.sin(angle / yearSpeed);
+    var z = radius * Math.cos(angle / yearSpeed);
+
+    return {x:x, z:z};
+}
+
 
 
 //infinite loop
