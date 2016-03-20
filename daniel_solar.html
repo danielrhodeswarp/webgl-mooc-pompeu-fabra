@@ -19,6 +19,8 @@ var cameraControl;
 
 //some controls
 var showOrbitLines = true;
+var revolvePlanets = true;
+var rotatePlanets = true;
 
 //here comes the science
 
@@ -157,6 +159,7 @@ function createPlanet(planet) {
         //mesh.position.x = 0;
         //mesh.position.x = 0;
         //mesh.position.x = 0;
+        mesh.rotation.x = Math.PI / 2;
         mesh.name = 'orbit_for_' + planet.name;
         scene.add(mesh);
     }
@@ -208,7 +211,7 @@ function createPlanetMaterial(planet) {
         //parms.emissiveMap = ;
     }
 
-    var planetMaterial = new THREE.MeshPhongMaterial(parms);
+    var planetMaterial = new THREE.MeshLambertMaterial(parms);
     
     //mandatory diffuse texture-----------------------------------------
     var planetTexture = new THREE.Texture();
@@ -490,18 +493,24 @@ function movePlanets() {
 
 //console.log(planetDef.ey);
 
-        var x = planetDef.au * Math.sin(planetMesh.angle / (planetDef.ey * angleShrinker));
-        var y = planetDef.au * Math.cos((planetMesh.angle -= oneDegree) / (planetDef.ey * angleShrinker));
+        if(revolvePlanets)
+        {
+            var x = planetDef.au * Math.sin(planetMesh.angle / (planetDef.ey * angleShrinker));
+            var z = planetDef.au * Math.cos((planetMesh.angle -= oneDegree) / (planetDef.ey * angleShrinker));
 
-        //over/under flowing is not an issue?
-        //if(planetMesh.angle < GreatestNegativeValueAllowedEtc){console.log('arse');}
+            //over/under flowing is not an issue?
+            //if(planetMesh.angle < GreatestNegativeValueAllowedEtc){console.log('arse');}
 
-        planetMesh.position.x = x;
-        planetMesh.position.y = y;
+            planetMesh.position.x = x;
+            planetMesh.position.z = z;
+        }
 
-        //NOTE if planetDef.ed is bigger, then rotate slower
-        //planetMesh.rotation.x += x;
-        planetMesh.rotation.z += (1 / planetDef.ed) / rotationShrinker;
+        if(rotatePlanets)
+        {
+            //NOTE if planetDef.ed is bigger, then rotate slower
+            //planetMesh.rotation.x += x;
+            planetMesh.rotation.y += (1 / planetDef.ed) / rotationShrinker;
+        }
 
     }
 }
